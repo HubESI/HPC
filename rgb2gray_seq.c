@@ -34,8 +34,10 @@ int main(int argc, char **argv) {
         strncpy(output_file, input_file, l);
         output_file[l] = '\0';
         strncat(strncat(output_file, "_grayscale.", MAX_PATH), input_file_extension, MAX_PATH);
-    } else
+    } else {
         strncpy(output_file, argv[2], MAX_PATH);
+        output_file[MAX_PATH] = '\0';
+    }
     int width, height, channels;
     uint8_t *input_img = stbi_load(input_file, &width, &height, &channels, 0);
     if (!input_img) {
