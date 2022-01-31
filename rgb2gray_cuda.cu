@@ -12,12 +12,14 @@
 #define BLOCK_WIDTH 32
 #define BLOCK_HEIGHT 32
 
-__global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image, int image_width, int image_height) {
+__global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image, int image_width, int image_height, int image_channels) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int index = y * image_width + x;
     if (y > image_height || x > image_width) return;
-    d_gray_image[index] = (uint8_t)(.299f * d_rgba_image[index * 3] + .587f * d_rgba_image[index * 3 + 1] + .114f * d_rgba_image[index * 3 + 2]);
+    int index = y * image_width + x;
+    int gray_channels = image_channels == 4 ? 2 : 1;
+    d_gray_image[index * gray_channels] = (uint8_t)(.299f * d_rgba_image[index * image_channels] + .587f * d_rgba_image[index * image_channels + 1] + .114f * d_rgba_image[index * image_channels + 2]);
+    if (image_channels == 4 && gray_channels == 2) d_gray_image[index * gray_channels + 1] = d_rgba_image[index * image_channels + 3];
 }
 
 const char *get_file_ext(char *file_path) {
@@ -77,7 +79,7 @@ int main(int argc, char **argv) {
     unsigned int nb_blocksy = (unsigned int)(height / BLOCK_HEIGHT + 1);
     const dim3 grid_size(nb_blocksx, nb_blocksy, 1);
     cudaEventRecord(start, 0);
-    rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height);
+    rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height, channels);
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&elapsed_time, start, stop);
