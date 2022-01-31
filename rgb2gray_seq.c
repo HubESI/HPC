@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
         printf("Error in loading the image\n");
         exit(1);
     }
-    printf("Loaded image with a width of %dpx, a height of %dpx and %d channels\n", width, height, channels);
+    printf("Loaded image '%s' with a width of %dpx, a height of %dpx and %d channels\n", input_file, width, height, channels);
     size_t img_size = width * height * channels;
     int gray_channels = channels == 4 ? 2 : 1;
     size_t output_img_size = width * height * gray_channels;
@@ -69,6 +69,6 @@ int main(int argc, char **argv) {
         stbi_write_png(output_file, width, height, gray_channels, output_img, width * gray_channels);
     stbi_image_free(input_img);
     stbi_image_free(output_img);
-    printf("check %s (took %fms)\n", output_file, time_spent);
+    printf("check '%s' (took %fms)\n", output_file, time_spent);
     return 0;
 }
