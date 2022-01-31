@@ -59,10 +59,9 @@ int main(int argc, char **argv) {
         exit(1);
     }
     clock_t begin = clock();
-    for (uint8_t *p = input_img, *pg = output_img; p != input_img + input_img_size; p += channels, pg += gray_channels) {
-        *pg = (uint8_t)(.299f * *p + .587f * *(p + 1) + .114f * *(p + 2));
-        if (channels == 4)
-            *(pg + 1) = *(p + 3);
+    for (int i_output_img = 0, i_input_img = 0; i_output_img < output_img_size && i_input_img < input_img_size; i_output_img += gray_channels, i_input_img += channels) {
+        output_img[i_output_img] = (uint8_t)(.299f * input_img[i_input_img] + .587f * input_img[i_input_img + 1] + .114f * input_img[i_input_img + 2]);
+        if (channels == 4) output_img[i_output_img + 1] = input_img[i_input_img + 3];
     }
     clock_t end = clock();
     // time is milliseconds
