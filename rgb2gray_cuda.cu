@@ -97,6 +97,6 @@ int main(int argc, char **argv) {
     cudaEventDestroy(stop);
     cudaFree(d_input_img);
     cudaFree(d_output_img);
-    printf("check '%s' (took %fms)\n", output_file, time_spent);
+    printf("Check '%s' (took %fms)\n", output_file, time_spent);
     return 0;
 }

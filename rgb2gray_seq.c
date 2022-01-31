@@ -71,6 +71,6 @@ int main(int argc, char **argv) {
         stbi_write_png(output_file, width, height, gray_channels, output_img, width * gray_channels);
     stbi_image_free(input_img);
     free(output_img);
-    printf("check '%s' (took %fms)\n", output_file, time_spent);
+    printf("Check '%s' (took %fms)\n", output_file, time_spent);
     return 0;
 }
