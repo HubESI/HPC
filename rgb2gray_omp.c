@@ -18,6 +18,7 @@ const char *get_file_ext(char *file_path) {
 }
 
 int main(int argc, char **argv) {
+    int num_threads;
     char input_file[MAX_PATH + 1], output_file[MAX_PATH + 1];
     const char *input_file_extension;
     if (argc < 2) {
@@ -58,11 +59,18 @@ int main(int argc, char **argv) {
         exit(1);
     }
     double begin = omp_get_wtime();
-#pragma omp parallel for
-    for (int i_output_img = 0; i_output_img < output_img_size; i_output_img += gray_channels) {
-        int i_input_img = i_output_img / gray_channels * channels;
-        output_img[i_output_img] = (uint8_t)(.299f * input_img[i_input_img] + .587f * input_img[i_input_img + 1] + .114f * input_img[i_input_img + 2]);
-        if (channels == 4) output_img[i_output_img + 1] = input_img[i_input_img + 3];
+#pragma omp parallel
+    {
+#pragma omp for
+        for (int i_output_img = 0; i_output_img < output_img_size; i_output_img += gray_channels) {
+            int i_input_img = i_output_img / gray_channels * channels;
+            output_img[i_output_img] = (uint8_t)(.299f * input_img[i_input_img] + .587f * input_img[i_input_img + 1] + .114f * input_img[i_input_img + 2]);
+            if (channels == 4) output_img[i_output_img + 1] = input_img[i_input_img + 3];
+        }
+#pragma omp single
+        {
+            num_threads = omp_get_num_threads();
+        }
     }
     double end = omp_get_wtime();
     // time is milliseconds
@@ -76,6 +84,6 @@ int main(int argc, char **argv) {
         stbi_write_png(output_file, width, height, gray_channels, output_img, width * gray_channels);
     stbi_image_free(input_img);
     free(output_img);
-    printf("Check '%s' (took %fms)\n", output_file, time_spent);
+    printf("Check '%s' (took %fms with %d threads)\n", output_file, time_spent, num_threads);
     return 0;
 }
