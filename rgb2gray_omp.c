@@ -1,7 +1,7 @@
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image/stb_image.h"
@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
     printf("Loaded image '%s' with a width of %dpx, a height of %dpx and %d channels\n", input_file, width, height, channels);
-    size_t img_size = width * height * channels;
+    size_t input_img_size = width * height * channels;
     int gray_channels = channels == 4 ? 2 : 1;
     size_t output_img_size = width * height * gray_channels;
     uint8_t *output_img = malloc(output_img_size);
@@ -58,15 +58,16 @@ int main(int argc, char **argv) {
         printf("Unable to allocate memory for the output image\n");
         exit(1);
     }
-    clock_t begin = clock();
-    for (uint8_t *p = input_img, *pg = output_img; p != input_img + img_size; p += channels, pg += gray_channels) {
-        *pg = (uint8_t)(.299f * *p + .587f * *(p + 1) + .114f * *(p + 2));
-        if (channels == 4)
-            *(pg + 1) = *(p + 3);
+    double begin = omp_get_wtime();
+#pragma omp parallel for
+    for (int i_output_img = 0; i_output_img < output_img_size; i_output_img += gray_channels) {
+        int i_input_img = i_output_img / gray_channels * channels;
+        output_img[i_output_img] = (uint8_t)(.299f * input_img[i_input_img] + .587f * input_img[i_input_img + 1] + .114f * input_img[i_input_img + 2]);
+        if (channels == 4) output_img[i_output_img + 1] = input_img[i_input_img + 3];
     }
-    clock_t end = clock();
+    double end = omp_get_wtime();
     // time is milliseconds
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC * 1000;
+    double time_spent = (end - begin) * 1000;
     const char *output_file_extension = get_file_ext(output_file);
     if (!(strcmp(output_file_extension, "jpg") || strcmp(output_file_extension, "jpeg") || strcmp(output_file_extension, "JPG") || strcmp(output_file_extension, "JPEG")))
         stbi_write_jpg(output_file, width, height, gray_channels, output_img, 100);
