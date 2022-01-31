@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
     else
         stbi_write_png(output_file, width, height, gray_channels, output_img, width * gray_channels);
     stbi_image_free(input_img);
-    stbi_image_free(output_img);
+    free(output_img);
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
     cudaFree(d_a);
