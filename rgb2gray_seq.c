@@ -39,8 +39,7 @@ int main(int argc, char **argv) {
         output_file[MAX_PATH] = '\0';
     }
     int width, height, channels;
-    stbi_info(input_file, &width, &height, &channels);
-    if (channels != 4 && channels != 3) {
+    if (stbi_info(input_file, &width, &height, &channels) && channels != 4 && channels != 3) {
         printf("Invalid input image '%s' has %d channel%s, expected 3 or 4\n", input_file, channels, channels > 1 ? "s" : "");
         exit(1);
     }
