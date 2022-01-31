@@ -60,14 +60,14 @@ int main(int argc, char **argv) {
     size_t img_size = width * height * channels;
     int gray_channels = channels == 4 ? 2 : 1;
     size_t output_img_size = width * height * gray_channels;
-    uint8_t *output_img = malloc(output_img_size);
+    uint8_t *output_img = (uint8_t *)malloc(output_img_size);
     if (!output_img) {
         printf("Unable to allocate memory for the output image\n");
         exit(1);
     }
-    uint8_t *d_input_img, d_output_img;
+    uint8_t *d_input_img, *d_output_img;
     cudaEvent_t start, stop;
-    float elapsed_time;
+    float time_spent;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     size_t input_img_size = width * height * channels;
@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
     rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height, channels);
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&elapsed_time, start, stop);
+    cudaEventElapsedTime(&time_spent, start, stop);
     cudaMemcpy(output_img, d_output_img, output_img_size, cudaMemcpyDeviceToHost);
     const char *output_file_extension = get_file_ext(output_file);
     if (!(strcmp(output_file_extension, "jpg") || strcmp(output_file_extension, "jpeg") || strcmp(output_file_extension, "JPG") || strcmp(output_file_extension, "JPEG")))
@@ -95,8 +95,8 @@ int main(int argc, char **argv) {
     free(output_img);
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
-    cudaFree(d_a);
-    cudaFree(d_a);
+    cudaFree(d_input_img);
+    cudaFree(d_output_img);
     printf("check '%s' (took %fms)\n", output_file, time_spent);
     return 0;
 }
