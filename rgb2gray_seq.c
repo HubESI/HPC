@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
     printf("Loaded image '%s' with a width of %dpx, a height of %dpx and %d channels\n", input_file, width, height, channels);
-    size_t img_size = width * height * channels;
+    size_t input_img_size = width * height * channels;
     int gray_channels = channels == 4 ? 2 : 1;
     size_t output_img_size = width * height * gray_channels;
     uint8_t *output_img = malloc(output_img_size);
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
     clock_t begin = clock();
-    for (uint8_t *p = input_img, *pg = output_img; p != input_img + img_size; p += channels, pg += gray_channels) {
+    for (uint8_t *p = input_img, *pg = output_img; p != input_img + input_img_size; p += channels, pg += gray_channels) {
         *pg = (uint8_t)(.299f * *p + .587f * *(p + 1) + .114f * *(p + 2));
         if (channels == 4)
             *(pg + 1) = *(p + 3);
