@@ -12,14 +12,21 @@
 #define BLOCK_WIDTH 32
 #define BLOCK_HEIGHT 32
 
-__global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image, int image_width, int image_height, int image_channels) {
+__global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image, int image_width, int image_height) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     if (y > image_height || x > image_width) return;
     int index = y * image_width + x;
-    int gray_channels = image_channels == 4 ? 2 : 1;
-    d_gray_image[index * gray_channels] = (uint8_t)(.299f * d_rgba_image[index * image_channels] + .587f * d_rgba_image[index * image_channels + 1] + .114f * d_rgba_image[index * image_channels + 2]);
-    if (image_channels == 4) d_gray_image[index * gray_channels + 1] = d_rgba_image[index * image_channels + 3];
+    d_gray_image[index * 2] = (uint8_t)(.299f * d_rgba_image[index * 4] + .587f * d_rgba_image[index * 4 + 1] + .114f * d_rgba_image[index * 4 + 2]);
+    d_gray_image[index * 2 + 1] = d_rgba_image[index * 4 + 3];
+}
+
+__global__ void rgb_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image, int image_width, int image_height) {
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    if (y > image_height || x > image_width) return;
+    int index = y * image_width + x;
+    d_gray_image[index] = (uint8_t)(.299f * d_rgba_image[index * 3] + .587f * d_rgba_image[index * 3 + 1] + .114f * d_rgba_image[index * 3 + 2]);
 }
 
 const char *get_file_ext(char *file_path) {
@@ -84,7 +91,10 @@ int main(int argc, char **argv) {
     unsigned int nb_blocksy = (unsigned int)(height / BLOCK_HEIGHT + 1);
     const dim3 grid_size(nb_blocksx, nb_blocksy, 1);
     cudaEventRecord(start, 0);
-    rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height, channels);
+    if (channels == 4)
+        rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height);
+    else
+        rgb_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height);
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time_spent, start, stop);
