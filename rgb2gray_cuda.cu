@@ -19,7 +19,7 @@ __global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image, 
     int index = y * image_width + x;
     int gray_channels = image_channels == 4 ? 2 : 1;
     d_gray_image[index * gray_channels] = (uint8_t)(.299f * d_rgba_image[index * image_channels] + .587f * d_rgba_image[index * image_channels + 1] + .114f * d_rgba_image[index * image_channels + 2]);
-    if (image_channels == 4 && gray_channels == 2) d_gray_image[index * gray_channels + 1] = d_rgba_image[index * image_channels + 3];
+    if (image_channels == 4) d_gray_image[index * gray_channels + 1] = d_rgba_image[index * image_channels + 3];
 }
 
 const char *get_file_ext(char *file_path) {
@@ -51,6 +51,11 @@ int main(int argc, char **argv) {
         output_file[MAX_PATH] = '\0';
     }
     int width, height, channels;
+    stbi_info(input_file, &width, &height, &channels);
+    if (channels != 4 && channels != 3) {
+        printf("Invalid input image '%s' has %d channel%s, expected 3 or 4\n", input_file, channels, channels > 1 ? "s" : "");
+        exit(1);
+    }
     uint8_t *input_img = stbi_load(input_file, &width, &height, &channels, 0);
     if (!input_img) {
         printf("Error in loading the image\n");

@@ -39,6 +39,11 @@ int main(int argc, char **argv) {
         output_file[MAX_PATH] = '\0';
     }
     int width, height, channels;
+    stbi_info(input_file, &width, &height, &channels);
+    if (channels != 4 && channels != 3) {
+        printf("Invalid input image '%s' has %d channel%s, expected 3 or 4\n", input_file, channels, channels > 1 ? "s" : "");
+        exit(1);
+    }
     uint8_t *input_img = stbi_load(input_file, &width, &height, &channels, 0);
     if (!input_img) {
         printf("Error in loading the image\n");
@@ -56,7 +61,7 @@ int main(int argc, char **argv) {
     clock_t begin = clock();
     for (uint8_t *p = input_img, *pg = output_img; p != input_img + img_size; p += channels, pg += gray_channels) {
         *pg = (uint8_t)(.299f * *p + .587f * *(p + 1) + .114f * *(p + 2));
-        if (channels == 4 && gray_channels == 2)
+        if (channels == 4)
             *(pg + 1) = *(p + 3);
     }
     clock_t end = clock();
