@@ -83,6 +83,11 @@ int main(int argc, char **argv) {
     const dim3 grid_size(nb_blocksx, nb_blocksy, 1);
     cudaEventRecord(start, 0);
     rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height, channels);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("Cuda error: %s\n", cudaGetErrorString(err));
+        exit(1);
+    }
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time_spent, start, stop);
