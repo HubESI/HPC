@@ -54,8 +54,8 @@ int main(int argc, char **argv) {
     clock_t begin = clock();
     for (uint8_t *p = input_img, *pg = output_img; p != input_img + img_size; p += channels, pg += gray_channels) {
         *pg = (uint8_t)(.299f * *p + .587f * *(p + 1) + .114f * *(p + 2));
-        if (channels == 4)
-            *(pg + 1) = *(pg + 3);
+        if (channels == 4 && gray_channels == 2)
+            *(pg + 1) = *(p + 3);
     }
     clock_t end = clock();
     // time is milliseconds
