@@ -1,7 +1,7 @@
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image/stb_image.h"
@@ -18,10 +18,11 @@ const char *get_file_ext(char *file_path) {
 }
 
 int main(int argc, char **argv) {
+    int num_threads;
     char input_file[MAX_PATH + 1], output_file[MAX_PATH + 1];
     const char *input_file_extension;
     if (argc < 2) {
-        printf("Usage: ./rgb2gray input_file [output_file]\n");
+        printf("Usage: ./blur input_file [output_file]\n");
         exit(1);
     }
     strncpy(input_file, argv[1], MAX_PATH);
@@ -63,36 +64,42 @@ int main(int argc, char **argv) {
         printf("Unable to allocate memory for the output image\n");
         exit(1);
     }
-    clock_t begin = clock();
     int filter_size = 5;
-    for (int x_img = 0; x_img < width; x_img++) {
-        for (int y_img = 0; y_img < height; y_img++) {
-            int i_img = (y_img * width + x_img) * channels;
-            int sum = 0, count = 0;
-            int output_red = 0, output_green = 0, output_blue = 0;
-            for (int x_box = x_img - filter_size;
-                 x_box < x_img + filter_size + 1; x_box++) {
-                for (int y_box = y_img - filter_size;
-                     y_box < y_img + filter_size + 1; y_box++) {
-                    if (x_box >= 0 && x_box < width && y_box >= 0 &&
-                        y_box < height) {
-                        int i_box = (y_box * width + x_box) * channels;
-                        output_red += input_img[i_box];
-                        output_green += input_img[i_box + 1];
-                        output_blue += input_img[i_box + 2];
-                        count++;
+    double begin = omp_get_wtime();
+#pragma omp parallel
+    {
+#pragma omp for
+        for (int x_img = 0; x_img < width; x_img++) {
+            for (int y_img = 0; y_img < height; y_img++) {
+                int i_img = (y_img * width + x_img) * channels;
+                int sum = 0, count = 0;
+                int output_red = 0, output_green = 0, output_blue = 0;
+                for (int x_box = x_img - filter_size;
+                     x_box < x_img + filter_size + 1; x_box++) {
+                    for (int y_box = y_img - filter_size;
+                         y_box < y_img + filter_size + 1; y_box++) {
+                        if (x_box >= 0 && x_box < width && y_box >= 0 &&
+                            y_box < height) {
+                            int i_box = (y_box * width + x_box) * channels;
+                            output_red += input_img[i_box];
+                            output_green += input_img[i_box + 1];
+                            output_blue += input_img[i_box + 2];
+                            count++;
+                        }
                     }
                 }
+                output_img[i_img] = output_red / count;
+                output_img[i_img + 1] = output_green / count;
+                output_img[i_img + 2] = output_blue / count;
+                if (channels == 4) output_img[i_img + 3] = input_img[i_img + 3];
             }
-            output_img[i_img] = output_red / count;
-            output_img[i_img + 1] = output_green / count;
-            output_img[i_img + 2] = output_blue / count;
-            if (channels == 4) output_img[i_img + 3] = input_img[i_img + 3];
         }
+#pragma omp single
+        { num_threads = omp_get_num_threads(); }
     }
-    clock_t end = clock();
+    double end = omp_get_wtime();
     // time is milliseconds
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC * 1000;
+    double time_spent = (end - begin) * 1000;
     const char *output_file_extension = get_file_ext(output_file);
     if (!(strcmp(output_file_extension, "jpg") ||
           strcmp(output_file_extension, "jpeg") ||
@@ -107,6 +114,7 @@ int main(int argc, char **argv) {
                        width * channels);
     stbi_image_free(input_img);
     free(output_img);
-    printf("Check '%s' (took %fms)\n", output_file, time_spent);
+    printf("Check '%s' (took %fms with %d threads)\n", output_file, time_spent,
+           num_threads);
     return 0;
 }
