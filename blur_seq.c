@@ -65,30 +65,30 @@ int main(int argc, char **argv) {
     }
     clock_t begin = clock();
     int filter_size = 5;
-    for (int i_img = 0; i_img < img_size; i_img += channels) {
-        int x_image = (i_img / channels) % width;
-        int y_image = i_img / channels / width;
-        int sum = 0, count = 0;
-        int output_red = 0, output_green = 0, output_blue = 0;
-        for (int x_box = x_image - filter_size;
-             x_box < x_image + filter_size + 1; x_box++) {
-            for (int y_box = y_image - filter_size;
-                 y_box < y_image + filter_size + 1; y_box++) {
-                if (x_box >= 0 && x_box < width && y_box >= 0 &&
-                    y_box < height) {
-                    output_red += input_img[(y_box * width + x_box) * channels];
-                    output_green +=
-                        input_img[(y_box * width + x_box) * channels + 1];
-                    output_blue +=
-                        input_img[(y_box * width + x_box) * channels + 2];
-                    count++;
+    for (int x_image = 0; x_image < width; x_image++) {
+        for (int y_image = 0; y_image < height; y_image++) {
+            int i_image = (y_image * width + x_image) * channels;
+            int sum = 0, count = 0;
+            int output_red = 0, output_green = 0, output_blue = 0;
+            for (int x_box = x_image - filter_size;
+                 x_box < x_image + filter_size + 1; x_box++) {
+                for (int y_box = y_image - filter_size;
+                     y_box < y_image + filter_size + 1; y_box++) {
+                    if (x_box >= 0 && x_box < width && y_box >= 0 &&
+                        y_box < height) {
+                        int i_box = (y_box * width + x_box) * channels;
+                        output_red += input_img[i_box];
+                        output_green += input_img[i_box + 1];
+                        output_blue += input_img[i_box + 2];
+                        count++;
+                    }
                 }
             }
+            output_img[i_image] = output_red / count;
+            output_img[i_image + 1] = output_green / count;
+            output_img[i_image + 2] = output_blue / count;
+            if (channels == 4) output_img[i_image + 3] = input_img[i_image + 3];
         }
-        output_img[i_img] = output_red / count;
-        output_img[i_img + 1] = output_green / count;
-        output_img[i_img + 2] = output_blue / count;
-        if (channels == 4) output_img[i_img + 3] = input_img[i_img + 3];
     }
     clock_t end = clock();
     // time is milliseconds
