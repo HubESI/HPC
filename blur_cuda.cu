@@ -11,22 +11,31 @@
 #define MAX_PATH 255
 #define BLOCK_WIDTH 32
 #define BLOCK_HEIGHT 32
+#define DEFAULT_FILTER_SIZE 5
 
-__global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image,
-                                  int image_width, int image_height,
-                                  int image_channels) {
+__global__ void blur(uint8_t *input_img, uint8_t *output_img, int width,
+                     int height, int channels, int filter_size) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
-    if (y > image_height || x > image_width) return;
-    int index = y * image_width + x;
-    int gray_channels = image_channels == 4 ? 2 : 1;
-    d_gray_image[index * gray_channels] =
-        (uint8_t)(.299f * d_rgba_image[index * image_channels] +
-                  .587f * d_rgba_image[index * image_channels + 1] +
-                  .114f * d_rgba_image[index * image_channels + 2]);
-    if (image_channels == 4)
-        d_gray_image[index * gray_channels + 1] =
-            d_rgba_image[index * image_channels + 3];
+    int i_img = (y * width + x) * channels;
+    int sum = 0, count = 0;
+    int output_red = 0, output_green = 0, output_blue = 0;
+    for (int x_box = x - filter_size; x_box < x + filter_size + 1; x_box++) {
+        for (int y_box = y - filter_size; y_box < y + filter_size + 1;
+             y_box++) {
+            if (x_box >= 0 && x_box < width && y_box >= 0 && y_box < height) {
+                int i_box = (y_box * width + x_box) * channels;
+                output_red += input_img[i_box];
+                output_green += input_img[i_box + 1];
+                output_blue += input_img[i_box + 2];
+                count++;
+            }
+        }
+    }
+    output_img[i_img] = output_red / count;
+    output_img[i_img + 1] = output_green / count;
+    output_img[i_img + 2] = output_blue / count;
+    if (channels == 4) output_img[i_img + 3] = input_img[i_img + 3];
 }
 
 const char *get_file_ext(char *file_path) {
@@ -54,7 +63,7 @@ int main(int argc, char **argv) {
                 strnlen(input_file_extension, MAX_PATH) - 1;
         strncpy(output_file, input_file, l);
         output_file[l] = '\0';
-        strncat(strncat(output_file, "_grayscale.", MAX_PATH),
+        strncat(strncat(output_file, "_blurred.", MAX_PATH),
                 input_file_extension, MAX_PATH);
     } else {
         strncpy(output_file, argv[2], MAX_PATH);
@@ -76,10 +85,8 @@ int main(int argc, char **argv) {
         "Loaded image '%s' with a width of %dpx, a height of %dpx and %d "
         "channels\n",
         input_file, width, height, channels);
-    size_t input_img_size = width * height * channels;
-    int gray_channels = channels == 4 ? 2 : 1;
-    size_t output_img_size = width * height * gray_channels;
-    uint8_t *output_img = (uint8_t *)malloc(output_img_size);
+    size_t img_size = width * height * channels;
+    uint8_t *output_img = (uint8_t *)malloc(img_size);
     if (!output_img) {
         printf("Unable to allocate memory for the output image\n");
         exit(1);
@@ -89,16 +96,16 @@ int main(int argc, char **argv) {
     float time_spent;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
-    cudaMalloc((void **)&d_input_img, input_img_size);
-    cudaMalloc((void **)&d_output_img, output_img_size);
-    cudaMemcpy(d_input_img, input_img, input_img_size, cudaMemcpyHostToDevice);
+    cudaMalloc((void **)&d_input_img, img_size);
+    cudaMalloc((void **)&d_output_img, img_size);
+    cudaMemcpy(d_input_img, input_img, img_size, cudaMemcpyHostToDevice);
     const dim3 block_size(BLOCK_WIDTH, BLOCK_HEIGHT, 1);
     unsigned int nb_blocksx = (unsigned int)(width / BLOCK_WIDTH + 1);
     unsigned int nb_blocksy = (unsigned int)(height / BLOCK_HEIGHT + 1);
     const dim3 grid_size(nb_blocksx, nb_blocksy, 1);
     cudaEventRecord(start, 0);
-    rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img,
-                                                 width, height, channels);
+    blur<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height,
+                                    channels, DEFAULT_FILTER_SIZE);
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         printf("Cuda error: %s\n", cudaGetErrorString(err));
@@ -118,10 +125,10 @@ int main(int argc, char **argv) {
                        100);
     else if (!(strcmp(output_file_extension, "bmp") ||
                strcmp(output_file_extension, "BMP")))
-        stbi_write_bmp(output_file, width, height, gray_channels, output_img);
+        stbi_write_bmp(output_file, width, height, channels, output_img);
     else
-        stbi_write_png(output_file, width, height, gray_channels, output_img,
-                       width * gray_channels);
+        stbi_write_png(output_file, width, height, channels, output_img,
+                       width * channels);
     stbi_image_free(input_img);
     free(output_img);
     cudaEventDestroy(start);
