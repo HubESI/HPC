@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
                 strnlen(input_file_extension, MAX_PATH) - 1;
         strncpy(output_file, input_file, l);
         output_file[l] = '\0';
-        strncat(strncat(output_file, "_grayscale.", MAX_PATH),
+        strncat(strncat(output_file, "_blurred.", MAX_PATH),
                 input_file_extension, MAX_PATH);
     } else {
         strncpy(output_file, argv[2], MAX_PATH);
@@ -57,24 +57,38 @@ int main(int argc, char **argv) {
         "Loaded image '%s' with a width of %dpx, a height of %dpx and %d "
         "channels\n",
         input_file, width, height, channels);
-    size_t input_img_size = width * height * channels;
-    int gray_channels = channels == 4 ? 2 : 1;
-    size_t output_img_size = width * height * gray_channels;
-    uint8_t *output_img = malloc(output_img_size);
+    size_t img_size = width * height * channels;
+    uint8_t *output_img = malloc(img_size);
     if (!output_img) {
         printf("Unable to allocate memory for the output image\n");
         exit(1);
     }
     clock_t begin = clock();
-    for (int i_output_img = 0, i_input_img = 0;
-         i_output_img < output_img_size && i_input_img < input_img_size;
-         i_output_img += gray_channels, i_input_img += channels) {
-        output_img[i_output_img] =
-            (uint8_t)(.299f * input_img[i_input_img] +
-                      .587f * input_img[i_input_img + 1] +
-                      .114f * input_img[i_input_img + 2]);
-        if (channels == 4)
-            output_img[i_output_img + 1] = input_img[i_input_img + 3];
+    int filter_size = 5;
+    for (int i_img = 0; i_img < img_size; i_img += channels) {
+        int x_image = (i_img / channels) % width;
+        int y_image = i_img / channels / width;
+        int sum = 0, count = 0;
+        int output_red = 0, output_green = 0, output_blue = 0;
+        for (int x_box = x_image - filter_size;
+             x_box < x_image + filter_size + 1; x_box++) {
+            for (int y_box = y_image - filter_size;
+                 y_box < y_image + filter_size + 1; y_box++) {
+                if (x_box >= 0 && x_box < width && y_box >= 0 &&
+                    y_box < height) {
+                    output_red += input_img[(y_box * width + x_box) * channels];
+                    output_green +=
+                        input_img[(y_box * width + x_box) * channels + 1];
+                    output_blue +=
+                        input_img[(y_box * width + x_box) * channels + 2];
+                    count++;
+                }
+            }
+        }
+        output_img[i_img] = output_red / count;
+        output_img[i_img + 1] = output_green / count;
+        output_img[i_img + 2] = output_blue / count;
+        if (channels == 4) output_img[i_img + 3] = input_img[i_img + 3];
     }
     clock_t end = clock();
     // time is milliseconds
@@ -84,14 +98,13 @@ int main(int argc, char **argv) {
           strcmp(output_file_extension, "jpeg") ||
           strcmp(output_file_extension, "JPG") ||
           strcmp(output_file_extension, "JPEG")))
-        stbi_write_jpg(output_file, width, height, gray_channels, output_img,
-                       100);
+        stbi_write_jpg(output_file, width, height, channels, output_img, 100);
     else if (!(strcmp(output_file_extension, "bmp") ||
                strcmp(output_file_extension, "BMP")))
-        stbi_write_bmp(output_file, width, height, gray_channels, output_img);
+        stbi_write_bmp(output_file, width, height, channels, output_img);
     else
-        stbi_write_png(output_file, width, height, gray_channels, output_img,
-                       width * gray_channels);
+        stbi_write_png(output_file, width, height, channels, output_img,
+                       width * channels);
     stbi_image_free(input_img);
     free(output_img);
     printf("Check '%s' (took %fms)\n", output_file, time_spent);
