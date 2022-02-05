@@ -11,18 +11,18 @@
 #define MAX_PATH 255
 #define BLOCK_WIDTH 32
 #define BLOCK_HEIGHT 32
-#define DEFAULT_FILTER_SIZE 5
+#define BLUR_RADIUS 5
 
 __global__ void blur(uint8_t *input_img, uint8_t *output_img, int width,
-                     int height, int channels, int filter_size) {
+                     int height, int channels) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     if (x >= width || y >= height) return;
     int i_img = (y * width + x) * channels;
     int count = 0;
     int output_red = 0, output_green = 0, output_blue = 0;
-    for (int x_box = x - filter_size; x_box < x + filter_size + 1; x_box++) {
-        for (int y_box = y - filter_size; y_box < y + filter_size + 1;
+    for (int x_box = x - BLUR_RADIUS; x_box < x + BLUR_RADIUS + 1; x_box++) {
+        for (int y_box = y - BLUR_RADIUS; y_box < y + BLUR_RADIUS + 1;
              y_box++) {
             if (x_box >= 0 && x_box < width && y_box >= 0 && y_box < height) {
                 int i_box = (y_box * width + x_box) * channels;
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
     const dim3 grid_size(nb_blocksx, nb_blocksy, 1);
     cudaEventRecord(start, 0);
     blur<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height,
-                                    channels, DEFAULT_FILTER_SIZE);
+                                    channels);
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         printf("Cuda error: %s\n", cudaGetErrorString(err));

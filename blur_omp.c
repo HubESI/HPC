@@ -9,6 +9,7 @@
 #include "stb_image/stb_image_write.h"
 
 #define MAX_PATH 255
+#define BLUR_RADIUS 5
 
 const char *get_file_ext(char *file_path) {
     const char *p, *dot = file_path;
@@ -64,7 +65,6 @@ int main(int argc, char **argv) {
         printf("Unable to allocate memory for the output image\n");
         exit(1);
     }
-    int filter_size = 5;
     double begin = omp_get_wtime();
 #pragma omp parallel
     {
@@ -74,10 +74,10 @@ int main(int argc, char **argv) {
                 int i_img = (y_img * width + x_img) * channels;
                 int count = 0;
                 int output_red = 0, output_green = 0, output_blue = 0;
-                for (int x_box = x_img - filter_size;
-                     x_box < x_img + filter_size + 1; x_box++) {
-                    for (int y_box = y_img - filter_size;
-                         y_box < y_img + filter_size + 1; y_box++) {
+                for (int x_box = x_img - BLUR_RADIUS;
+                     x_box < x_img + BLUR_RADIUS + 1; x_box++) {
+                    for (int y_box = y_img - BLUR_RADIUS;
+                         y_box < y_img + BLUR_RADIUS + 1; y_box++) {
                         if (x_box >= 0 && x_box < width && y_box >= 0 &&
                             y_box < height) {
                             int i_box = (y_box * width + x_box) * channels;
