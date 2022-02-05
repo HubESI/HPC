@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     char input_file[MAX_PATH + 1], output_file[MAX_PATH + 1];
     const char *input_file_extension;
     if (argc < 2) {
-        printf("Usage: ./rgb2gray input_file [output_file]\n");
+        printf("Usage: ./blur input_file [output_file]\n");
         exit(1);
     }
     strncpy(input_file, argv[1], MAX_PATH);
