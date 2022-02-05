@@ -17,7 +17,7 @@ __global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image,
                                   int image_channels) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
-    if (y > image_height || x > image_width) return;
+    if (x >= image_width || y >= image_height) return;
     int index = y * image_width + x;
     int gray_channels = image_channels == 4 ? 2 : 1;
     d_gray_image[index * gray_channels] =
