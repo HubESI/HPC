@@ -114,15 +114,13 @@ int main(int argc, char **argv) {
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time_spent, start, stop);
-    cudaMemcpy(output_img, d_output_img, output_img_size,
-               cudaMemcpyDeviceToHost);
+    cudaMemcpy(output_img, d_output_img, img_size, cudaMemcpyDeviceToHost);
     const char *output_file_extension = get_file_ext(output_file);
     if (!(strcmp(output_file_extension, "jpg") ||
           strcmp(output_file_extension, "jpeg") ||
           strcmp(output_file_extension, "JPG") ||
           strcmp(output_file_extension, "JPEG")))
-        stbi_write_jpg(output_file, width, height, gray_channels, output_img,
-                       100);
+        stbi_write_jpg(output_file, width, height, channels, output_img, 100);
     else if (!(strcmp(output_file_extension, "bmp") ||
                strcmp(output_file_extension, "BMP")))
         stbi_write_bmp(output_file, width, height, channels, output_img);
