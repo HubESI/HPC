@@ -12,21 +12,27 @@
 #define BLOCK_WIDTH 32
 #define BLOCK_HEIGHT 32
 
-__global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image, int image_width, int image_height) {
+__global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image,
+                                  int image_width, int image_height) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     if (y > image_height || x > image_width) return;
     int index = y * image_width + x;
-    d_gray_image[index * 2] = (uint8_t)(.299f * d_rgba_image[index * 4] + .587f * d_rgba_image[index * 4 + 1] + .114f * d_rgba_image[index * 4 + 2]);
+    d_gray_image[index * 2] = (uint8_t)(.299f * d_rgba_image[index * 4] +
+                                        .587f * d_rgba_image[index * 4 + 1] +
+                                        .114f * d_rgba_image[index * 4 + 2]);
     d_gray_image[index * 2 + 1] = d_rgba_image[index * 4 + 3];
 }
 
-__global__ void rgb_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image, int image_width, int image_height) {
+__global__ void rgb_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image,
+                                 int image_width, int image_height) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     if (y > image_height || x > image_width) return;
     int index = y * image_width + x;
-    d_gray_image[index] = (uint8_t)(.299f * d_rgba_image[index * 3] + .587f * d_rgba_image[index * 3 + 1] + .114f * d_rgba_image[index * 3 + 2]);
+    d_gray_image[index] = (uint8_t)(.299f * d_rgba_image[index * 3] +
+                                    .587f * d_rgba_image[index * 3 + 1] +
+                                    .114f * d_rgba_image[index * 3 + 2]);
 }
 
 const char *get_file_ext(char *file_path) {
@@ -46,13 +52,16 @@ int main(int argc, char **argv) {
     strncpy(input_file, argv[1], MAX_PATH);
     input_file[MAX_PATH] = '\0';
     input_file_extension = get_file_ext(input_file);
-    /* if only input_file is passed then default output_file to input_file_grayscale.ext
-    input_file without extension + "_grayscale." + input_file's extension */
+    /* if only input_file is passed then default output_file to
+    input_file_grayscale.ext input_file without extension + "_grayscale." +
+    input_file's extension */
     if (argc == 2) {
-        int l = strnlen(input_file, MAX_PATH) - strnlen(input_file_extension, MAX_PATH) - 1;
+        int l = strnlen(input_file, MAX_PATH) -
+                strnlen(input_file_extension, MAX_PATH) - 1;
         strncpy(output_file, input_file, l);
         output_file[l] = '\0';
-        strncat(strncat(output_file, "_grayscale.", MAX_PATH), input_file_extension, MAX_PATH);
+        strncat(strncat(output_file, "_grayscale.", MAX_PATH),
+                input_file_extension, MAX_PATH);
     } else {
         strncpy(output_file, argv[2], MAX_PATH);
         output_file[MAX_PATH] = '\0';
@@ -60,7 +69,8 @@ int main(int argc, char **argv) {
     int width, height, channels;
     stbi_info(input_file, &width, &height, &channels);
     if (channels != 4 && channels != 3) {
-        printf("Invalid input image '%s' has %d channel%s, expected 3 or 4\n", input_file, channels, channels > 1 ? "s" : "");
+        printf("Invalid input image '%s' has %d channel%s, expected 3 or 4\n",
+               input_file, channels, channels > 1 ? "s" : "");
         exit(1);
     }
     uint8_t *input_img = stbi_load(input_file, &width, &height, &channels, 0);
@@ -68,7 +78,10 @@ int main(int argc, char **argv) {
         printf("Error in loading the image\n");
         exit(1);
     }
-    printf("Loaded image '%s' with a width of %dpx, a height of %dpx and %d channels\n", input_file, width, height, channels);
+    printf(
+        "Loaded image '%s' with a width of %dpx, a height of %dpx and %d "
+        "channels\n",
+        input_file, width, height, channels);
     size_t img_size = width * height * channels;
     int gray_channels = channels == 4 ? 2 : 1;
     size_t output_img_size = width * height * gray_channels;
@@ -92,20 +105,29 @@ int main(int argc, char **argv) {
     const dim3 grid_size(nb_blocksx, nb_blocksy, 1);
     cudaEventRecord(start, 0);
     if (channels == 4)
-        rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height);
+        rgba_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img,
+                                                     width, height);
     else
-        rgb_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height);
+        rgb_to_grayscale<<<grid_size, block_size>>>(d_input_img, d_output_img,
+                                                    width, height);
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time_spent, start, stop);
-    cudaMemcpy(output_img, d_output_img, output_img_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(output_img, d_output_img, output_img_size,
+               cudaMemcpyDeviceToHost);
     const char *output_file_extension = get_file_ext(output_file);
-    if (!(strcmp(output_file_extension, "jpg") || strcmp(output_file_extension, "jpeg") || strcmp(output_file_extension, "JPG") || strcmp(output_file_extension, "JPEG")))
-        stbi_write_jpg(output_file, width, height, gray_channels, output_img, 100);
-    else if (!(strcmp(output_file_extension, "bmp") || strcmp(output_file_extension, "BMP")))
+    if (!(strcmp(output_file_extension, "jpg") ||
+          strcmp(output_file_extension, "jpeg") ||
+          strcmp(output_file_extension, "JPG") ||
+          strcmp(output_file_extension, "JPEG")))
+        stbi_write_jpg(output_file, width, height, gray_channels, output_img,
+                       100);
+    else if (!(strcmp(output_file_extension, "bmp") ||
+               strcmp(output_file_extension, "BMP")))
         stbi_write_bmp(output_file, width, height, gray_channels, output_img);
     else
-        stbi_write_png(output_file, width, height, gray_channels, output_img, width * gray_channels);
+        stbi_write_png(output_file, width, height, gray_channels, output_img,
+                       width * gray_channels);
     stbi_image_free(input_img);
     free(output_img);
     cudaEventDestroy(start);
