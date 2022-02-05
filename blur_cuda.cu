@@ -17,6 +17,7 @@ __global__ void blur(uint8_t *input_img, uint8_t *output_img, int width,
                      int height, int channels, int filter_size) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
+    if (x >= width || y >= height) return;
     int i_img = (y * width + x) * channels;
     int sum = 0, count = 0;
     int output_red = 0, output_green = 0, output_blue = 0;
