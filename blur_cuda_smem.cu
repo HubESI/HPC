@@ -11,32 +11,89 @@
 #define MAX_PATH 255
 #define BLOCK_WIDTH 32
 #define BLOCK_HEIGHT 32
-#define DEFAULT_FILTER_SIZE 5
+#define BLUR_RADIUS 5
 
-__global__ void blur(uint8_t *input_img, uint8_t *output_img, int width,
-                     int height, int channels, int filter_size) {
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    if (x >= width || y >= height) return;
-    int i_img = (y * width + x) * channels;
-    int sum = 0, count = 0;
+__global__ void blur_rgb(uint8_t *input_img, uint8_t *output_img, int width,
+                         int height) {
+    __shared__ uint8_t smem[BLOCK_WIDTH * BLOCK_HEIGHT * 3];
+    int x =
+        blockIdx.x * (blockDim.x - 2 * BLUR_RADIUS) + threadIdx.x - BLUR_RADIUS;
+    int y =
+        blockIdx.y * (blockDim.y - 2 * BLUR_RADIUS) + threadIdx.y - BLUR_RADIUS;
+    x = x < 0 ? 0 : x;
+    x = x >= width ? width - 1 : x;
+    y = y < 0 ? 0 : y;
+    y = y >= height ? height - 1 : y;
+    int i_img = (y * width + x) * 3;
+    int i_smem = (threadIdx.y * BLOCK_WIDTH + threadIdx.x) * 3;
+    smem[i_smem] = input_img[i_img];
+    smem[i_smem + 1] = input_img[i_img + 1];
+    smem[i_smem + 2] = input_img[i_img + 2];
+    __syncthreads();
+    if (!((threadIdx.x > BLUR_RADIUS - 1 &&
+           threadIdx.x < BLOCK_WIDTH - BLUR_RADIUS) &&
+          (threadIdx.y > BLUR_RADIUS - 1 &&
+           threadIdx.y < BLOCK_HEIGHT - BLUR_RADIUS)))
+        return;
+    int count = 0;
     int output_red = 0, output_green = 0, output_blue = 0;
-    for (int x_box = x - filter_size; x_box < x + filter_size + 1; x_box++) {
-        for (int y_box = y - filter_size; y_box < y + filter_size + 1;
-             y_box++) {
-            if (x_box >= 0 && x_box < width && y_box >= 0 && y_box < height) {
-                int i_box = (y_box * width + x_box) * channels;
-                output_red += input_img[i_box];
-                output_green += input_img[i_box + 1];
-                output_blue += input_img[i_box + 2];
-                count++;
-            }
+    for (int x_box = threadIdx.x - BLUR_RADIUS;
+         x_box < threadIdx.x + BLUR_RADIUS + 1; x_box++) {
+        for (int y_box = threadIdx.y - BLUR_RADIUS;
+             y_box < threadIdx.y + BLUR_RADIUS + 1; y_box++) {
+            int i_box = (y_box * BLOCK_WIDTH + x_box) * 3;
+            output_red += smem[i_box];
+            output_green += smem[i_box + 1];
+            output_blue += smem[i_box + 2];
+            count++;
         }
     }
     output_img[i_img] = output_red / count;
     output_img[i_img + 1] = output_green / count;
     output_img[i_img + 2] = output_blue / count;
-    if (channels == 4) output_img[i_img + 3] = input_img[i_img + 3];
+}
+
+__global__ void blur_rgba(uint8_t *input_img, uint8_t *output_img, int width,
+                          int height) {
+    __shared__ uint8_t smem[BLOCK_WIDTH * BLOCK_HEIGHT * 4];
+    int x =
+        blockIdx.x * (blockDim.x - 2 * BLUR_RADIUS) + threadIdx.x - BLUR_RADIUS;
+    int y =
+        blockIdx.y * (blockDim.y - 2 * BLUR_RADIUS) + threadIdx.y - BLUR_RADIUS;
+    x = x < 0 ? 0 : x;
+    x = x >= width ? width - 1 : x;
+    y = y < 0 ? 0 : y;
+    y = y >= height ? height - 1 : y;
+    int i_img = (y * width + x) * 4;
+    int i_smem = (threadIdx.y * BLOCK_WIDTH + threadIdx.x) * 4;
+    smem[i_smem] = input_img[i_img];
+    smem[i_smem + 1] = input_img[i_img + 1];
+    smem[i_smem + 2] = input_img[i_img + 2];
+    smem[i_smem + 3] = input_img[i_img + 3];
+    __syncthreads();
+    if (!((threadIdx.x > BLUR_RADIUS - 1 &&
+           threadIdx.x < BLOCK_WIDTH - BLUR_RADIUS) &&
+          (threadIdx.y > BLUR_RADIUS - 1 &&
+           threadIdx.y < BLOCK_HEIGHT - BLUR_RADIUS)))
+        return;
+    int count = 0;
+    int output_red = 0, output_green = 0, output_blue = 0, output_alpha = 0;
+    for (int x_box = threadIdx.x - BLUR_RADIUS;
+         x_box < threadIdx.x + BLUR_RADIUS + 1; x_box++) {
+        for (int y_box = threadIdx.y - BLUR_RADIUS;
+             y_box < threadIdx.y + BLUR_RADIUS + 1; y_box++) {
+            int i_box = (y_box * BLOCK_WIDTH + x_box) * 4;
+            output_red += smem[i_box];
+            output_green += smem[i_box + 1];
+            output_blue += smem[i_box + 2];
+            output_alpha += smem[i_box + 3];
+            count++;
+        }
+    }
+    output_img[i_img] = output_red / count;
+    output_img[i_img + 1] = output_green / count;
+    output_img[i_img + 2] = output_blue / count;
+    output_img[i_img + 3] = output_alpha / count;
 }
 
 const char *get_file_ext(char *file_path) {
@@ -101,12 +158,18 @@ int main(int argc, char **argv) {
     cudaMalloc((void **)&d_output_img, img_size);
     cudaMemcpy(d_input_img, input_img, img_size, cudaMemcpyHostToDevice);
     const dim3 block_size(BLOCK_WIDTH, BLOCK_HEIGHT, 1);
-    unsigned int nb_blocksx = (unsigned int)(width / BLOCK_WIDTH + 1);
-    unsigned int nb_blocksy = (unsigned int)(height / BLOCK_HEIGHT + 1);
+    unsigned int nb_blocksx =
+        (unsigned int)(width / (BLOCK_WIDTH - 2 * BLUR_RADIUS) + 1);
+    unsigned int nb_blocksy =
+        (unsigned int)(height / (BLOCK_HEIGHT - 2 * BLUR_RADIUS) + 1);
     const dim3 grid_size(nb_blocksx, nb_blocksy, 1);
     cudaEventRecord(start, 0);
-    blur<<<grid_size, block_size>>>(d_input_img, d_output_img, width, height,
-                                    channels, DEFAULT_FILTER_SIZE);
+    if (channels == 3)
+        blur_rgb<<<grid_size, block_size>>>(d_input_img, d_output_img, width,
+                                            height);
+    else
+        blur_rgba<<<grid_size, block_size>>>(d_input_img, d_output_img, width,
+                                             height);
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
         printf("Cuda error: %s\n", cudaGetErrorString(err));
