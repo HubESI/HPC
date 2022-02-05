@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
         for (int x_img = 0; x_img < width; x_img++) {
             for (int y_img = 0; y_img < height; y_img++) {
                 int i_img = (y_img * width + x_img) * channels;
-                int sum = 0, count = 0;
+                int count = 0;
                 int output_red = 0, output_green = 0, output_blue = 0;
                 for (int x_box = x_img - filter_size;
                      x_box < x_img + filter_size + 1; x_box++) {
