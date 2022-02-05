@@ -16,7 +16,7 @@ __global__ void rgba_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image,
                                   int image_width, int image_height) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
-    if (y > image_height || x > image_width) return;
+    if (x >= image_width || y >= image_height) return;
     int index = y * image_width + x;
     d_gray_image[index * 2] = (uint8_t)(.299f * d_rgba_image[index * 4] +
                                         .587f * d_rgba_image[index * 4 + 1] +
@@ -28,7 +28,7 @@ __global__ void rgb_to_grayscale(uint8_t *d_rgba_image, uint8_t *d_gray_image,
                                  int image_width, int image_height) {
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
-    if (y > image_height || x > image_width) return;
+    if (x >= image_width || y >= image_height) return;
     int index = y * image_width + x;
     d_gray_image[index] = (uint8_t)(.299f * d_rgba_image[index * 3] +
                                     .587f * d_rgba_image[index * 3 + 1] +
